@@ -9,7 +9,6 @@
 #import <UIKit/UIKit.h>
 
 @interface JDSplitViewController : UISplitViewController
-
 @end
 
 typedef void(^SeparatorGestureBlock)(UITouch *gestureTouch);
