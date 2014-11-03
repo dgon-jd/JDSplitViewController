@@ -32,11 +32,7 @@ CGFloat const kSeparatorInset = 10.f;
     [super viewDidLoad];
     
     self.preferredPrimaryColumnWidthFraction = 1.f;
-    UIWindow *window = [[[UIApplication sharedApplication] windows] firstObject];
-    self.maximumPrimaryColumnWidth = window.frame.size.width / 2;
-    
     [self configureLongTouch];
-
 }
 
 -(void)viewDidAppear:(BOOL)animated {
@@ -84,39 +80,48 @@ CGFloat const kSeparatorInset = 10.f;
     // on the touch began - remember touch position and make screenShot
     if (self.longPressGestureRecognizer.state == UIGestureRecognizerStateBegan) {
         self.currentSplitPart = [self calculatePartFromTouchPoint:touchPoint];
-        UIImage *snapshotImage = (self.currentSplitPart == MasterPart) ? [self snapshot:self.masterViewController.view] : [self snapshot:self.detailViewController.view];
-        self.snapshotView = [[UIImageView alloc] initWithImage:snapshotImage];
-        self.snapshotView.center = [self.longPressGestureRecognizer locationInView:self.view];
-        [self.view addSubview:self.snapshotView];
-        
+        [self showScreenShot];
     } else if (self.longPressGestureRecognizer.state == UIGestureRecognizerStateEnded) {
-        
         SplitPart newSplitPart = [self calculatePartFromTouchPoint:touchPoint];
-        if (newSplitPart != self.currentSplitPart) {
-            
-            if ([self.masterViewController isKindOfClass:[UINavigationController class]] &&
-                [self.detailViewController isKindOfClass:[UINavigationController class]]) {
-                // if navigation controllers - do stack operations
-                UINavigationController *fromController = (newSplitPart == MasterPart) ? (UINavigationController *)self.detailViewController : (UINavigationController *)self.masterViewController;
-                UINavigationController *toController = (newSplitPart == MasterPart) ? (UINavigationController *)self.masterViewController : (UINavigationController *)self.detailViewController;
-                //move visible controller to another stack if not root
-                UIViewController *tempController = [fromController visibleViewController];
-                if (![tempController isEqual:fromController.viewControllers[0]]) {
-                    [fromController popViewControllerAnimated:NO];
-                    [toController pushViewController:tempController animated:NO];
-                } else {
-                    // if root - swap
-                    [self swapParts];
-                    }
-            } else {
-                // if not navigation - just swap
-                [self swapParts];
-            }
-        }
+        [self dragVisibleControllerFromPart:self.currentSplitPart toPart:newSplitPart];
         [self.snapshotView removeFromSuperview];
     } else {
         self.snapshotView.center = [self.longPressGestureRecognizer locationInView:self.view];
     }
+}
+
+- (void)showScreenShot {
+    UIImage *snapshotImage = (self.currentSplitPart == MasterPart) ? [self snapshot:self.masterViewController.view] : [self snapshot:self.detailViewController.view];
+    self.snapshotView = [[UIImageView alloc] initWithImage:snapshotImage];
+    self.snapshotView.center = [self.longPressGestureRecognizer locationInView:self.view];
+    [self.view addSubview:self.snapshotView];
+}
+
+- (void)dragVisibleControllerFromPart:(SplitPart)fromPart toPart:(SplitPart)toPart {
+    if (toPart != fromPart) {
+        if ([self bothPartsAreNavigation]) {
+            // if navigation controllers - do stack operations
+            UINavigationController *fromController = self.viewControllers[(toPart == MasterPart) ? DetailPart : MasterPart];
+            UINavigationController *toController = self.viewControllers[(toPart == MasterPart) ? MasterPart : DetailPart];
+            //move visible controller to another stack if not root
+            UIViewController *tempController = [fromController visibleViewController];
+            if (![tempController isEqual:fromController.viewControllers[0]]) {
+                [fromController popViewControllerAnimated:NO];
+                [toController pushViewController:tempController animated:NO];
+            } else {
+                // if root - swap
+                [self swapParts];
+            }
+        } else {
+            // if not navigation - just swap
+            [self swapParts];
+        }
+    }
+}
+
+- (BOOL)bothPartsAreNavigation {
+    return ([self.masterViewController isKindOfClass:[UINavigationController class]] &&
+            [self.detailViewController isKindOfClass:[UINavigationController class]]);
 }
 
 - (SplitPart)calculatePartFromTouchPoint:(CGPoint)point {
@@ -141,6 +146,7 @@ CGFloat const kSeparatorInset = 10.f;
 @end
 
 #pragma mark - JDSeparatorView
+
 @implementation JDSeparatorView
 
 -(void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
