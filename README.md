@@ -1,6 +1,5 @@
 JDSplitViewController
 =====================
-# JDSplitViewController
 
 A split view controller with dynamic width and possibility to drag'n'drop master and detail parts.
 
