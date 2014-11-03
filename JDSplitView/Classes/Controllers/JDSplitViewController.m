@@ -30,8 +30,11 @@ CGFloat const kSeparatorInset = 10.f;
 #pragma mark - Lifecycle
 - (void)viewDidLoad {
     [super viewDidLoad];
-    
     self.preferredPrimaryColumnWidthFraction = 1.f;
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(updateSeparatorViewFrame)
+                                                 name:UIDeviceOrientationDidChangeNotification
+                                               object:nil];
     [self configureLongTouch];
 }
 
@@ -46,47 +49,50 @@ CGFloat const kSeparatorInset = 10.f;
 }
 
 - (void)configureSeparatorView {
-    CGRect frame = CGRectMake(self.detailViewController.view.frame.origin.x - kSeparatorInset
-                              , 0.f
-                              , kSeparatorInset * 2,
-                              self.detailViewController.view.frame.size.height);
-    
-    _separatorView = [[JDSeparatorView alloc] initWithFrame:frame];
     __weak typeof(self) weakSelf = self;
-    [_separatorView setGestureBlock:^(UITouch *touch) {
+    _separatorView = [[JDSeparatorView alloc] initWithSeparatorBlock:^(UITouch *touch) {
         CGPoint touchPoint = [touch locationInView:weakSelf.view];
         CGPoint centerPoint = CGPointMake(touchPoint.x, weakSelf.separatorView.center.y);
         weakSelf.separatorView.center = centerPoint;
         weakSelf.maximumPrimaryColumnWidth = touchPoint.x;
     }];
+    [self updateSeparatorViewFrame];
     [self.view addSubview:_separatorView];
-    
-    
+}
+
+- (void)updateSeparatorViewFrame {
+    CGRect frame = CGRectMake(self.detailViewController.view.frame.origin.x - kSeparatorInset
+                              , 0.f
+                              , kSeparatorInset * 2,
+                              self.detailViewController.view.frame.size.height);
+    [self.separatorView setFrame:frame];
 }
 
 #pragma mark - Getters
 -(UIViewController *)masterViewController {
-    return self.viewControllers[0];
+    return self.viewControllers[MasterPart];
 }
 
 -(UIViewController *)detailViewController {
-    return self.viewControllers[1];
+    return self.viewControllers[(self.viewControllers.count > 1) ? DetailPart : MasterPart];
 }
 
 #pragma mark - Actions
 
 - (void)longAction {
-    CGPoint touchPoint = [self.longPressGestureRecognizer locationInView:self.view];
-    // on the touch began - remember touch position and make screenShot
-    if (self.longPressGestureRecognizer.state == UIGestureRecognizerStateBegan) {
-        self.currentSplitPart = [self calculatePartFromTouchPoint:touchPoint];
-        [self showScreenShot];
-    } else if (self.longPressGestureRecognizer.state == UIGestureRecognizerStateEnded) {
-        SplitPart newSplitPart = [self calculatePartFromTouchPoint:touchPoint];
-        [self dragVisibleControllerFromPart:self.currentSplitPart toPart:newSplitPart];
-        [self.snapshotView removeFromSuperview];
-    } else {
-        self.snapshotView.center = [self.longPressGestureRecognizer locationInView:self.view];
+    if (self.viewControllers.count > 1) {
+        CGPoint touchPoint = [self.longPressGestureRecognizer locationInView:self.view];
+        // on the touch began - remember touch position and make screenShot
+        if (self.longPressGestureRecognizer.state == UIGestureRecognizerStateBegan) {
+            self.currentSplitPart = [self calculatePartFromTouchPoint:touchPoint];
+            [self showScreenShot];
+        } else if (self.longPressGestureRecognizer.state == UIGestureRecognizerStateEnded) {
+            SplitPart newSplitPart = [self calculatePartFromTouchPoint:touchPoint];
+            [self dragVisibleControllerFromPart:self.currentSplitPart toPart:newSplitPart];
+            [self.snapshotView removeFromSuperview];
+        } else {
+            self.snapshotView.center = [self.longPressGestureRecognizer locationInView:self.view];
+        }
     }
 }
 
@@ -147,7 +153,19 @@ CGFloat const kSeparatorInset = 10.f;
 
 #pragma mark - JDSeparatorView
 
+@interface JDSeparatorView()
+@property (nonatomic, copy) SeparatorGestureBlock gestureBlock;
+@end
+
 @implementation JDSeparatorView
+
+-(instancetype)initWithSeparatorBlock:(SeparatorGestureBlock)gestureBlock {
+    self = [super init];
+    if (self) {
+        _gestureBlock = [gestureBlock copy];
+    }
+    return self;
+}
 
 -(void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
     [super touchesBegan:touches withEvent:event];

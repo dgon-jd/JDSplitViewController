@@ -14,5 +14,5 @@
 typedef void(^SeparatorGestureBlock)(UITouch *gestureTouch);
 
 @interface JDSeparatorView : UIView
-@property (nonatomic, copy) SeparatorGestureBlock gestureBlock;
+- (instancetype)initWithSeparatorBlock:(SeparatorGestureBlock)gestureBlock;
 @end
